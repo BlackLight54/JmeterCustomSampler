@@ -2,15 +2,22 @@ package hu.bme.mit.opencbdc;
 
 public class OpenCBDCJavaClient {
 	static {
-		System.loadLibrary("opencbdc");
+		//System.loadLibrary("opencbdc");
 	}
 
-	native boolean mint(String[] args);
-	native boolean send(String[] args);
-	native boolean fan(String[] args);
-	native boolean sync(String[] args);
-	native boolean newAddress(String[] args);
-	native boolean info(String[] args);
-	native boolean importInput(String[] args);
-	native boolean confirmTx(String[] args);
+	String send(String[] args){
+		String res = "";
+		for (String string : args) {
+			res+= string;	
+			res += " ";
+		}
+		return res;
+	}
+	// native String mint(String[] args);
+	// native String fan(String[] args);
+	// native String sync(String[] args);
+	// native String newAddress(String[] args);
+	// native String info(String[] args);
+	// native String importInput(String[] args);
+	// native String confirmTx(String[] args);
 }
