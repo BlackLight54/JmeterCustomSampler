@@ -61,7 +61,7 @@ public class JMeterCustomSamplerOpenCBDCSend extends AbstractJavaSamplerClient {
 
         SampleResult sampleResult = new SampleResult();
         sampleResult.sampleStart();
-            sampleResult.setSampleLabel("Trans");
+            sampleResult.setSampleLabel("Transaction");
 
         try {
             String response = client.send(new String[]{from_mempool,from_wallet,to_address});
@@ -69,7 +69,7 @@ public class JMeterCustomSamplerOpenCBDCSend extends AbstractJavaSamplerClient {
             sampleResult.setSuccessful(Boolean.TRUE);
             sampleResult.setResponseCodeOK();
             sampleResult.setResponseMessage(response);
-            LOGGER.info("SUCCESS");
+
         } catch (Exception e) {
             LOGGER.error("Request was not successfully processed",e);
             sampleResult.sampleEnd();
