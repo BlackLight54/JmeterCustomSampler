@@ -1,16 +1,36 @@
 #include "hu_bme_mit_opencbdc_OpenCBDCJavaClient.h"
 #include <string>
 
+#include "atomizer_client.hpp"
+#include "bech32/bech32.h"
+#include "bech32/util/strencodings.h"
+#include "client.hpp"
+#include "crypto/sha256.h"
+#include "twophase_client.hpp"
+#include "uhs/transaction/messages.hpp"
+#include "util/common/config.hpp"
+#include "util/serialization/util.hpp"
+
+#include <future>
+#include <iostream>
+
+static constexpr auto bits_per_byte = 8;
+static constexpr auto bech32_bits_per_symbol = 5;
+
+
 JNIEXPORT jstring JNICALL Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_send(JNIEnv *env, jobject obj, jobjectArray arr)
 {
     std::string result;
-    for (size_t i = 0; i < env->GetArrayLength(arr); i++)
+    for (int i = 0; i < env->GetArrayLength(arr); i++)
     {
         result.append(env->GetStringUTFChars((jstring)env->GetObjectArrayElement(arr, i), NULL));
         result.append(" ");
         /* code */
     }
+    std::cout << result << std::endl;
     return env->NewStringUTF(result.c_str());
+
+    
     }
 
 JNIEXPORT jstring JNICALL Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_mint(JNIEnv *env, jobject obj, jobjectArray arr)
