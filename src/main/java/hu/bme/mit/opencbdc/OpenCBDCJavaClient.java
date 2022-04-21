@@ -2,7 +2,7 @@ package hu.bme.mit.opencbdc;
 
 public class OpenCBDCJavaClient {
 	static {
-		//System.loadLibrary("opencbdc");
+		System.load("/opt/tx-processor/build/src/uhs/client/JmeterCustomSampler/libclient-jni.jnilib");
 	}
 
 	native String send(String[] args);
