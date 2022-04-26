@@ -69,7 +69,7 @@ public class JMeterCustomSamplerOpenCBDCSend extends AbstractJavaSamplerClient {
             sampleResult.setSuccessful(Boolean.TRUE);
             sampleResult.setResponseCodeOK();
             sampleResult.setResponseMessage(response);
-
+            LOGGER.info("SUCCESS");
         } catch (Exception e) {
             LOGGER.error("Request was not successfully processed",e);
             sampleResult.sampleEnd();
