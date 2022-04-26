@@ -202,76 +202,120 @@ auto confirmtx_command(cbdc::client& client,
 }
 
 
+// LCOV_EXCL_START
+auto call(std::vector<std::string> args) -> int {
+
+     static constexpr auto min_arg_count = 5;
+    if(args.size() < min_arg_count) {
+        std::cerr << "Usage: " << args[0]
+                  << " <config file> <client file> <wallet file> <command>"
+                  << " <args...>" << std::endl;
+        return 0;
+    }
+
+    auto cfg_or_err = cbdc::config::load_options(args[1]);
+    if(std::holds_alternative<std::string>(cfg_or_err)) {
+        std::cerr << "Error loading config file: "
+                  << std::get<std::string>(cfg_or_err) << std::endl;
+        return -1;
+    }
+
+    auto opts = std::get<cbdc::config::options>(cfg_or_err);
+
+    SHA256AutoDetect();
+
+    const auto wallet_file = args[3];
+    const auto client_file = args[2];
+
+    auto logger = std::make_shared<cbdc::logging::log>(
+        cbdc::config::defaults::log_level);
+
+    auto client = std::unique_ptr<cbdc::client>();
+    if(opts.m_twophase_mode) {
+        client = std::make_unique<cbdc::twophase_client>(opts,
+                                                         logger,
+                                                         wallet_file,
+                                                         client_file);
+    } else {
+        client = std::make_unique<cbdc::atomizer_client>(opts,
+                                                         logger,
+                                                         wallet_file,
+                                                         client_file);
+    }
+
+    if(!client->init()) {
+        return -1;
+    }
+
+    const auto command = std::string(args[4]);
+    if(command == "mint") {
+        if(!mint_command(*client, args)) {
+            return -1;
+        }
+    } else if(command == "send") {
+        if(!send_command(*client, args)) {
+            return -1;
+        }
+    } else if(command == "fan") {
+        if(!fan_command(*client, args)) {
+            return -1;
+        }
+    } else if(command == "sync") {
+        client->sync();
+    } else if(command == "newaddress") {
+        newaddress_command(*client);
+    } else if(command == "info") {
+        const auto balance = client->balance();
+        const auto n_txos = client->utxo_count();
+        std::cout << "Balance: " << cbdc::client::print_amount(balance)
+                  << ", UTXOs: " << n_txos
+                  << ", pending TXs: " << client->pending_tx_count()
+                  << std::endl;
+    } else if(command == "importinput") {
+        if(!importinput_command(*client, args)) {
+            return -1;
+        }
+    } else if(command == "confirmtx") {
+        if(!confirmtx_command(*client, args)) {
+            return -1;
+        }
+    } else {
+        std::cerr << "Unknown command" << std::endl;
+    }
+
+    // TODO: check that the send queue has drained before closing
+    //       the network. For now, just sleep.
+    static constexpr auto shutdown_delay = std::chrono::milliseconds(100);
+    std::this_thread::sleep_for(shutdown_delay);
+
+    return 0;*/
+}
+// LCOV_EXCL_STOP
+
 JNIEXPORT jstring JNICALL
 Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_send(JNIEnv* env,
                                                  jobject obj,
                                                  jobjectArray arr) {
-    std::ostringstream strCout;
-    
 
+    // get args from java
     std::vector<std::string> args = {};
     jsize argc = env->GetArrayLength(arr);
-    strCout << "transaction params: ";
     for(int i = 0; i < argc; i++) {
         args.push_back(
             env->GetStringUTFChars((jstring)env->GetObjectArrayElement(arr, i),
                                    NULL));
     }
+    args.insert(args.begin() ,"client");
+    std::string tx_id = args.back();
+    args.pop_back();
+
+    std::ostringstream strCout;
+    strCout << "transaction params: ";
     for(int i = 0; i < argc; i++) {
         strCout << args[i];
         strCout << " ";
     }
     strCout << std::endl;
 
-    return env->NewStringUTF(strCout.str().c_str());
+   return env->NewStringUTF(strCout.str().c_str());
 }
-/* 
-JNIEXPORT jstring JNICALL
-Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_mint(JNIEnv* env,
-                                                 jobject obj,
-                                                 jobjectArray arr) {
-    return env->NewStringUTF("");
-}
-
-JNIEXPORT jstring JNICALL
-Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_fan(JNIEnv* env,
-                                                jobject obj,
-                                                jobjectArray arr) {
-    return env->NewStringUTF("");
-}
-
-JNIEXPORT jstring JNICALL
-Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_sync(JNIEnv* env,
-                                                 jobject obj,
-                                                 jobjectArray arr) {
-    return env->NewStringUTF("");
-}
-
-JNIEXPORT jstring JNICALL
-Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_newAddress(JNIEnv* env,
-                                                       jobject obj,
-                                                       jobjectArray arr) {
-    return env->NewStringUTF("");
-}
-
-JNIEXPORT jstring JNICALL
-Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_info(JNIEnv* env,
-                                                 jobject obj,
-                                                 jobjectArray arr) {
-    return env->NewStringUTF("");
-}
-
-JNIEXPORT jstring JNICALL
-Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_importInput(JNIEnv* env,
-                                                        jobject obj,
-                                                        jobjectArray arr) {
-    return env->NewStringUTF("");
-}
-
-JNIEXPORT jstring JNICALL
-Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_confirmTx(JNIEnv* env,
-                                                      jobject obj,
-                                                      jobjectArray arr) {
-    return env->NewStringUTF("");
-}
- */
