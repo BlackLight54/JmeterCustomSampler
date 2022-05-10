@@ -19,6 +19,7 @@ project (JmeterCustomSampler)
 include_directories(${JNI_INCLUDE_DIRS} ${_classDir} ${_stubDir})
 add_library(client-jni MODULE OpenCBDCJavaClient.cpp hu_bme_mit_opencbdc_OpenCBDCJavaClient.h)
 set_target_properties(client-jni PROPERTIES SUFFIX ".jnilib")
+target_compile_options(client-jni PRIVATE -fexceptions)
 target_link_libraries(  client-jni 
                         ${JNI_LIBRARIES} 
                         client

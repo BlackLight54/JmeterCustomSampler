@@ -16,13 +16,11 @@
 static constexpr auto bits_per_byte = 8;
 static constexpr auto bech32_bits_per_symbol = 5;
 
-
 auto mint_command(cbdc::client& client, const std::vector<std::string>& args)
     -> bool {
     static constexpr auto min_mint_arg_count = 7;
     if(args.size() < min_mint_arg_count) {
-        std::cerr << "Mint requires args <n outputs> <output value>"
-                  << std::endl;
+        throw "Mint requires args <n outputs> <output value>";
         return false;
     }
 
@@ -38,12 +36,9 @@ auto mint_command(cbdc::client& client, const std::vector<std::string>& args)
 
 auto decode_address(const std::string& addr_str)
     -> std::optional<cbdc::hash_t> {
-    // TODO: if/when bech32m is merged into Bitcoin Core, switch to that.
-    //       see: https://github.com/bitcoin/bitcoin/pull/20861
-    // TODO: move address encoding/decoding into cbdc::client.
     const auto [hrp, enc_data] = bech32::Decode(addr_str);
     if(hrp != cbdc::config::bech32_hrp) {
-        std::cout << "Invalid address encoding" << std::endl;
+        throw "Invalid address encoding";
         return std::nullopt;
     }
     auto data = std::vector<uint8_t>();
@@ -57,7 +52,7 @@ auto decode_address(const std::string& addr_str)
     auto pubkey = cbdc::hash_t();
     if(data[0] != static_cast<uint8_t>(cbdc::client::address_type::public_key)
        || data.size() != pubkey.size() + 1) {
-        std::cout << "Address is not a supported type" << std::endl;
+        throw "Address is not a supported type";
         return std::nullopt;
     }
     data.erase(data.begin());
@@ -66,37 +61,43 @@ auto decode_address(const std::string& addr_str)
     return pubkey;
 }
 
-void print_tx_result(const std::optional<cbdc::transaction::full_tx>& tx,
-                     const std::optional<cbdc::sentinel::response>& resp,
-                     const cbdc::hash_t& pubkey) {
-    std::cout << "tx_id:" << std::endl
-              << cbdc::to_string(cbdc::transaction::tx_id(tx.value()))
-              << std::endl;
+std::string
+print_tx_result(const std::optional<cbdc::transaction::full_tx>& tx,
+                const std::optional<cbdc::sentinel::response>& resp,
+                const cbdc::hash_t& pubkey) {
+    std::stringstream ss;
+    ss << "tx_id:" << std::endl
+       << cbdc::to_string(cbdc::transaction::tx_id(tx.value())) << std::endl;
     const auto inputs = cbdc::client::export_send_inputs(tx.value(), pubkey);
     for(const auto& inp : inputs) {
+        // TODO : How to get the output value?
         auto buf = cbdc::make_buffer(inp);
-        std::cout << "Data for recipient importinput:" << std::endl
-                  << buf.to_hex() << std::endl;
+        ss << "importinput:" << std::endl << buf.to_hex() << std::endl;
     }
 
     if(resp.has_value()) {
-        std::cout << "Sentinel responded: "
-                  << cbdc::sentinel::to_string(resp.value().m_tx_status)
-                  << std::endl;
+        ss << "sentinel:responded: "
+           << cbdc::sentinel::to_string(resp.value().m_tx_status) << std::endl;
+
         if(resp.value().m_tx_error.has_value()) {
-            std::cout << "Validation error: "
-                      << cbdc::transaction::validation::to_string(
-                             resp.value().m_tx_error.value())
-                      << std::endl;
+            std::stringstream ess;
+            ess << "Validation error: "
+                << cbdc::transaction::validation::to_string(
+                       resp.value().m_tx_error.value())
+                << std::endl;
+            throw ess.str();
+        } else {
+            return ss.str();
         }
     }
+    throw "Sentinel response not received";
 }
 
 auto send_command(cbdc::client& client, const std::vector<std::string>& args)
     -> bool {
     static constexpr auto min_send_arg_count = 7;
     if(args.size() < min_send_arg_count) {
-        std::cerr << "Send requires args <value> <pubkey>" << std::endl;
+        throw "Send requires args <value> <pubkey>";
         return false;
     }
 
@@ -104,14 +105,14 @@ auto send_command(cbdc::client& client, const std::vector<std::string>& args)
     static constexpr auto address_arg_idx = 6;
     auto pubkey = decode_address(args[address_arg_idx]);
     if(!pubkey.has_value()) {
-        std::cout << "Could not decode address" << std::endl;
+        throw "Could not decode address";
         return false;
     }
 
     const auto [tx, resp]
         = client.send(static_cast<uint32_t>(value), pubkey.value());
     if(!tx.has_value()) {
-        std::cout << "Could not generate valid send tx." << std::endl;
+        throw "Could not generate valid send tx.";
         return false;
     }
 
@@ -123,7 +124,7 @@ auto fan_command(cbdc::client& client, const std::vector<std::string>& args)
     -> bool {
     static constexpr auto min_fan_arg_count = 8;
     if(args.size() < min_fan_arg_count) {
-        std::cerr << "Fan requires args <count> <value> <pubkey>" << std::endl;
+        throw "Fan requires args <count> <value> <pubkey>";
         return false;
     }
 
@@ -133,7 +134,7 @@ auto fan_command(cbdc::client& client, const std::vector<std::string>& args)
     static constexpr auto address_arg_idx = 7;
     auto pubkey = decode_address(args[address_arg_idx]);
     if(!pubkey.has_value()) {
-        std::cout << "Could not decode address" << std::endl;
+        throw "Could not decode address";
         return false;
     }
 
@@ -141,7 +142,7 @@ auto fan_command(cbdc::client& client, const std::vector<std::string>& args)
                                        static_cast<uint32_t>(value),
                                        pubkey.value());
     if(!tx.has_value()) {
-        std::cout << "Could not generate valid send tx." << std::endl;
+        throw "Could not generate valid send tx.";
         return false;
     }
 
@@ -174,13 +175,13 @@ auto importinput_command(cbdc::client& client,
     static constexpr auto input_arg_idx = 5;
     auto buffer = cbdc::buffer::from_hex(args[input_arg_idx]);
     if(!buffer.has_value()) {
-        std::cout << "Invalid input encoding." << std::endl;
+        throw "Invalid input encoding.";
         return false;
     }
 
     auto in = cbdc::from_buffer<cbdc::transaction::input>(buffer.value());
     if(!in.has_value()) {
-        std::cout << "Invalid input" << std::endl;
+        throw "Invalid input";
         return false;
     }
     client.import_send_input(in.value());
@@ -192,32 +193,33 @@ auto confirmtx_command(cbdc::client& client,
     const auto tx_id = cbdc::hash_from_hex(args[5]);
     auto success = client.confirm_transaction(tx_id);
     if(!success) {
-        std::cout << "Unknown TXID" << std::endl;
+        throw "Unknown TXID";
         return false;
     }
+    // TODO : How to get out confirmation?
     std::cout << "Confirmed. Balance: "
               << cbdc::client::print_amount(client.balance())
               << " UTXOs: " << client.utxo_count() << std::endl;
     return true;
 }
 
-
 // LCOV_EXCL_START
-auto call(std::vector<std::string> args) -> int {
-
-     static constexpr auto min_arg_count = 5;
+auto call(std::vector<std::string> args) -> std::string {
+    static constexpr auto min_arg_count = 5;
     if(args.size() < min_arg_count) {
-        std::cerr << "Usage: " << args[0]
-                  << " <config file> <client file> <wallet file> <command>"
-                  << " <args...>" << std::endl;
-        return 0;
+        std::stringstream ss;
+        ss << "Usage: " << args[0]
+           << " <config file> <client file> <wallet file> <command>"
+           << " <args...>" << std::endl;
+        throw ss.str();
     }
 
     auto cfg_or_err = cbdc::config::load_options(args[1]);
     if(std::holds_alternative<std::string>(cfg_or_err)) {
-        std::cerr << "Error loading config file: "
-                  << std::get<std::string>(cfg_or_err) << std::endl;
-        return -1;
+        std::stringstream ss;
+        ss << "Error loading config file: "
+           << std::get<std::string>(cfg_or_err) << std::endl;
+        throw ss.str();
     }
 
     auto opts = std::get<cbdc::config::options>(cfg_or_err);
@@ -244,27 +246,28 @@ auto call(std::vector<std::string> args) -> int {
     }
 
     if(!client->init()) {
-        return -1;
+        return "ERROR";
     }
 
     const auto command = std::string(args[4]);
     if(command == "mint") {
         if(!mint_command(*client, args)) {
-            return -1;
+            return "ERROR";
         }
     } else if(command == "send") {
         if(!send_command(*client, args)) {
-            return -1;
+            return "ERROR";
         }
     } else if(command == "fan") {
         if(!fan_command(*client, args)) {
-            return -1;
+            return "ERROR";
         }
     } else if(command == "sync") {
         client->sync();
     } else if(command == "newaddress") {
         newaddress_command(*client);
     } else if(command == "info") {
+        // TODO: Maybe get out info?
         const auto balance = client->balance();
         const auto n_txos = client->utxo_count();
         std::cout << "Balance: " << cbdc::client::print_amount(balance)
@@ -273,22 +276,20 @@ auto call(std::vector<std::string> args) -> int {
                   << std::endl;
     } else if(command == "importinput") {
         if(!importinput_command(*client, args)) {
-            return -1;
+            return "ERROR";
         }
     } else if(command == "confirmtx") {
         if(!confirmtx_command(*client, args)) {
-            return -1;
+            return "ERROR";
         }
     } else {
-        std::cerr << "Unknown command" << std::endl;
+        throw "Unknown command";
     }
 
-    // TODO: check that the send queue has drained before closing
-    //       the network. For now, just sleep.
     static constexpr auto shutdown_delay = std::chrono::milliseconds(100);
     std::this_thread::sleep_for(shutdown_delay);
 
-    return 0;*/
+    return "OK";
 }
 // LCOV_EXCL_STOP
 
@@ -296,7 +297,6 @@ JNIEXPORT jstring JNICALL
 Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_send(JNIEnv* env,
                                                  jobject obj,
                                                  jobjectArray arr) {
-
     // get args from java
     std::vector<std::string> args = {};
     jsize argc = env->GetArrayLength(arr);
@@ -305,7 +305,7 @@ Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_send(JNIEnv* env,
             env->GetStringUTFChars((jstring)env->GetObjectArrayElement(arr, i),
                                    NULL));
     }
-    args.insert(args.begin() ,"client");
+    args.insert(args.begin(), "client");
     std::string tx_id = args.back();
     args.pop_back();
 
@@ -316,6 +316,24 @@ Java_hu_bme_mit_opencbdc_OpenCBDCJavaClient_send(JNIEnv* env,
         strCout << " ";
     }
     strCout << std::endl;
+    try {
+        auto result = call(args);
+        if(result == "OK") {
+            return env->NewStringUTF(result.c_str());
+        } else {
+            jclass Exception = env->FindClass("java/lang/Exception");
+            env->ThrowNew(Exception, "Error");
+        }
+    } catch(const char* e) {
+        jclass Exception = env->FindClass("java/lang/Exception");
+        std::string ec(e);
+        ec += " ";
+        ec += tx_id;
+        if(env->ThrowNew(Exception, ec.c_str())) {
+            std::cout << "Error: " << ec << std::endl;
+        } else
+            std::cout << "ThrowNew failed " << std::endl;
+    }
 
-   return env->NewStringUTF(strCout.str().c_str());
+    return env->NewStringUTF(strCout.str().c_str());
 }
